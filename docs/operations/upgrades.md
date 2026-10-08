@@ -26,16 +26,16 @@ If you wanted to upgrade just kube_version from v1.18.10 to v1.19.7, you could
 deploy the following way:
 
 ```ShellSession
-ansible-playbook cluster.yml -i inventory/sample/inventory.ini -e kube_version=1.18.10 -e upgrade_cluster_setup=true
+ansible-playbook cluster.yml -i inventory/sample/inventory.ini -e kube_version=1.18.10 -e '{"upgrade_cluster_setup": true}'
 ```
 
 And then repeat with 1.19.7 as kube_version:
 
 ```ShellSession
-ansible-playbook cluster.yml -i inventory/sample/inventory.ini -e kube_version=1.19.7 -e upgrade_cluster_setup=true
+ansible-playbook cluster.yml -i inventory/sample/inventory.ini -e kube_version=1.19.7 -e '{"upgrade_cluster_setup": true}'
 ```
 
-The var ```-e upgrade_cluster_setup=true``` is needed to be set in order to migrate the deploys of e.g kube-apiserver inside the cluster immediately which is usually only done in the graceful upgrade. (Refer to [#4139](https://github.com/kubernetes-sigs/kubespray/issues/4139) and [#4736](https://github.com/kubernetes-sigs/kubespray/issues/4736))
+The var ```-e '{"upgrade_cluster_setup": true}'``` is needed to be set in order to migrate the deploys of e.g kube-apiserver inside the cluster immediately which is usually only done in the graceful upgrade. (Refer to [#4139](https://github.com/kubernetes-sigs/kubespray/issues/4139) and [#4736](https://github.com/kubernetes-sigs/kubespray/issues/4736))
 
 ## Graceful upgrade
 
@@ -430,10 +430,12 @@ As of Kubespray 2.18.0, containerd is already the default container engine. If y
 If you want to upgrade the APT or YUM packages while the nodes are cordoned, you can use:
 
 ```ShellSession
-ansible-playbook upgrade-cluster.yml -b -i inventory/sample/inventory.ini -e system_upgrade=true
+ansible-playbook upgrade-cluster.yml -b -i inventory/sample/inventory.ini -e '{"system_upgrade": true}'
 ```
 
 Nodes will be rebooted when there are package upgrades (`system_upgrade_reboot: on-upgrade`).
 This can be changed to `always` or `never`.
 
 Note: Downloads will happen twice unless `system_upgrade_reboot` is `never`.
+
+Debian based nodes can be cleaned of packages to reduce disk space usage with `system_upgrade_autoclean: true`

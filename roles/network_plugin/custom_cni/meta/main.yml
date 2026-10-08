@@ -1,6 +1,6 @@
 ---
 dependencies:
-  - role: helm-apps
+  - role: helm_apps
     when:
       - inventory_hostname == groups['kube_control_plane'][0]
       - custom_cni_chart_release_name | length > 0
@@ -17,3 +17,5 @@ dependencies:
     repositories:
       - name: "{{ custom_cni_chart_repository_name }}"
         url: "{{ custom_cni_chart_repository_url }}"
+        username: "{{ custom_cni_chart_repository_username | default(omit) }}"
+        password: "{{ custom_cni_chart_repository_password | default(omit) }}"

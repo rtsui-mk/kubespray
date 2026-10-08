@@ -172,6 +172,10 @@ For further information, check [BGP Control Plane Resources documentation](https
 
 ### BGP Peering Policies (Legacy < v1.16)
 
+> **Warning:** The `cilium_bgp_peering_policies` variable uses the deprecated `CiliumBGPPeeringPolicy` (`cilium.io/v2alpha1`) CRD.
+> Starting with Cilium v1.16, this CRD is deprecated and generates warnings in Cilium logs.
+> Migrate to the new BGP v2 API using `cilium_bgp_cluster_configs`, `cilium_bgp_peer_configs`, `cilium_bgp_advertisements`, and `cilium_bgp_node_config_overrides`.
+
 Cilium's BGP Peering Policies can be configured with the `cilium_bgp_peering_policies` variable:
 
 ```yml
@@ -245,7 +249,7 @@ cilium_operator_extra_volume_mounts:
 ## Choose Cilium version
 
 ```yml
-cilium_version: "1.19.4"
+cilium_version: "1.20.2"
 ```
 
 ## Add variable to config

@@ -28,7 +28,7 @@
 
 - name: Cri-o | special handling for amazon linux
   import_tasks: "setup-amazon.yaml"
-  when: ansible_distribution in ["Amazon"]
+  when: ansible_facts['distribution'] in ["Amazon"]
 
 - name: Cri-o | build a list of crio runtimes with Katacontainers runtimes
   set_fact:
@@ -110,14 +110,14 @@
     src: crio.conf.j2
     dest: /etc/crio/crio.conf
     mode: "0644"
-  register: config_install
+  notify: Restart crio
 
 - name: Cri-o | install config.json
   template:
     src: config.json.j2
     dest: /etc/crio/config.json
     mode: "0644"
-  register: reg_auth_install
+  notify: Restart crio
 
 - name: Cri-o | copy binaries
   copy:
@@ -150,7 +150,7 @@
   copy:
     src: "{{ local_release_dir }}/cri-o/contrib/crio.service"
     dest: /etc/systemd/system/crio.service
-    mode: "0755"
+    mode: "0644"
     remote_src: true
   notify: Restart crio
 
@@ -189,7 +189,7 @@
     dest: /etc/containers/mounts.conf
     mode: "0644"
   when:
-    - ansible_os_family == 'RedHat'
+    - ansible_facts['os_family'] == 'RedHat'
   notify: Restart crio
 
 - name: Cri-o | create directory for oci hooks
@@ -220,7 +220,9 @@
     dest: /etc/containers/storage.conf
     section: storage.options.overlay
     option: mountopt
-    value: '{{ ''"nodev"'' if ansible_kernel is version(("4.18" if ansible_os_family == "RedHat" else "4.19"), "<") else ''"nodev,metacopy=on"'' }}'
+    value: >-
+      {{ '"nodev"' if ansible_facts['kernel'] is version(('4.18' if ansible_facts['os_family'] == 'RedHat' else '4.19'), '<')
+      else '"nodev,metacopy=on"' }}
     mode: "0644"
 
 - name: Cri-o | create directory registries configs
@@ -273,15 +275,15 @@
     daemon_reload: true
     enabled: true
     state: started
-  register: service_start
 
-- name: Cri-o | trigger service restart only when needed
-  service:
-    name: crio
-    state: restarted
-  when:
-    - config_install.changed or reg_auth_install.changed
-    - not service_start.changed
+# Every config/binary change above notifies "Restart crio", so this flush runs
+# the pending handlers right away instead of leaving the cri-o restart to the
+# end of the play (where it is lost if kubernetes/node is skipped, tagged out,
+# or runs in a separate play, as happens during cluster upgrades).
+# Note: flush_handlers flushes *all* notified handlers in the play, not only
+# "Restart crio". See kubernetes-sigs/kubespray#13031.
+- name: Cri-o | flush handlers to apply cri-o restart
+  meta: flush_handlers
 
 - name: Cri-o | verify that crio is running
   command: "{{ bin_dir }}/{{ crio_status_command }} info"

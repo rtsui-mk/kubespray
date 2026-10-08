@@ -25,7 +25,6 @@
       - { name: nfd-gc, file: nfd-gc.yaml, type: deploy }
       - { name: nfd-master, file: nfd-master.yaml, type: deploy }
       - { name: nfd-worker, file: nfd-worker.yaml, type: ds }
-      - { name: nfd-service, file: nfd-service.yaml, type: srv }
 
 - name: Node Feature Discovery | Create manifests
   template:

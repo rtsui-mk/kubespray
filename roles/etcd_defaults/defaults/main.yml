@@ -49,7 +49,7 @@ etcd_extra_vars: {}
 ## Etcd is restricted by default to 512M on systems under 4GB RAM, 512MB is not enough for much more than testing.
 ## Set this if your etcd nodes have less than 4GB but you want more RAM for etcd. Set to 0 for unrestricted RAM.
 ## This value is only relevant when deploying etcd with `etcd_deployment_type: docker`
-etcd_memory_limit: "{% if ansible_memtotal_mb < 4096 %}512M{% else %}0{% endif %}"
+etcd_memory_limit: "{% if ansible_facts['memtotal_mb'] < 4096 %}512M{% else %}0{% endif %}"
 
 ## Etcd has a default of 2G for its space quota. If you put a value in etcd_memory_limit which is less than
 ## etcd_quota_backend_bytes, you may encounter out of memory terminations of the etcd cluster. Please check
@@ -114,7 +114,13 @@ etcd_retries: 4
 
 # ETCD 3.5.x issue
 # https://groups.google.com/a/kubernetes.io/g/dev/c/B7gJs88XtQc/m/rSgNOzV2BwAJ?utm_medium=email&utm_source=footer
+# Rendered as the InitialCorruptCheck feature gate (etcd 3.6+)
 etcd_experimental_initial_corrupt_check: true
+
+## Feature gates for etcd 3.6 and later, added to InitialCorruptCheck, formatted like:
+##  etcd_feature_gates:
+##    CompactHashCheck: true
+etcd_feature_gates: {}
 
 # Enable distributed tracing
 # https://etcd.io/docs/v3.5/op-guide/monitoring/#distributed-tracing

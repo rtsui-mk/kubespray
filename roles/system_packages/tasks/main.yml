@@ -5,6 +5,11 @@
       - distribution
       - pkg_mgr
 
+- name: Normalize openSUSE MicroOS legacy OS family fact
+  set_fact:
+    ansible_os_family: Suse
+  when: ansible_facts['distribution'] == "openSUSE MicroOS"
+
 - name: Update package management cache (zypper) - SUSE
   command: zypper -n --gpg-auto-import-keys ref
   register: make_cache_output
@@ -34,17 +39,6 @@
   tags:
     - bootstrap_os
 
-# Remove this after ansible-core >= 2.19.0
-# See https://github.com/kubernetes-sigs/kubespray/pull/12138#issuecomment-3019304574
-- name: Install python3-libdnf5 on Fedora >= 41
-  raw: >
-    dnf install --assumeyes python3-libdnf5
-  become: true
-  retries: "{{ pkg_install_retries }}"
-  when:
-    - ansible_distribution == "Fedora"
-    - ansible_distribution_major_version | int >= 41
-
 - name: Manage packages
   package:
     name: "{{ item.packages }}"
@@ -56,7 +50,7 @@
   retries: "{{ pkg_install_retries }}"
   delay: "{{ retry_stagger | random + 3 }}"
   when:
-    - ansible_os_family not in ["Flatcar", "Flatcar Container Linux by Kinvolk"]
+    - ansible_os_family != "Flatcar"
     - not is_fedora_coreos
     - item.packages != []
   loop:

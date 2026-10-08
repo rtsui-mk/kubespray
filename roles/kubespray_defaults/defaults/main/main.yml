@@ -114,7 +114,7 @@ containerd_bin_dir: "{{ bin_dir }}"
 etcd_data_dir: /var/lib/etcd
 # Where the binaries will be downloaded.
 # Note: ensure that you've enough disk space (about 1G)
-local_release_dir: "/tmp/releases"
+local_release_dir: "{{ default_local_release_dir }}"
 # Random shifts for retrying failed ops like pushing/downloading
 retry_stagger: 5
 
@@ -240,9 +240,6 @@ cilium_identity_allocation_mode: crd
 # The default IP address management mode is "Cluster Scope".
 # https://docs.cilium.io/en/stable/concepts/networking/ipam/
 cilium_ipam_mode: cluster-pool
-
-# Determines if calico_rr group exists
-peer_with_calico_rr: "{{ 'calico_rr' in groups and groups['calico_rr'] | length > 0 }}"
 
 # Choose data store type for calico: "etcd" or "kdd" (kubernetes datastore)
 calico_datastore: "kdd"
@@ -478,6 +475,7 @@ expand_persistent_volumes: false
 metallb_enabled: false
 metallb_speaker_enabled: "{{ metallb_enabled }}"
 argocd_enabled: false
+argocd_namespace: argocd
 gateway_api_enabled: false
 prometheus_operator_crds_enabled: false
 
@@ -620,9 +618,20 @@ kubelet_protect_kernel_defaults: true
 
 # Set additional sysctl variables to modify Linux kernel variables, for example:
 # additional_sysctl:
-#  - { name: kernel.pid_max, value: 131072 }
+#  - { name: vm.swappiness, value: 10 }
 #
+# `additional_sysctl` uses exact-value semantics. For floor semantics
+# (only apply when the node's current value is lower), use
+# `additional_sysctl_min` below.
 additional_sysctl: []
+
+# User-defined sysctl floors, merged on top of the built-in floor values
+# (user values take precedence). Set a key to 0 to disable a default floor.
+# Example:
+# additional_sysctl_min:
+#   net.core.somaxconn: 65535
+#   kernel.pid_max: 0
+additional_sysctl_min: {}
 
 ## List of key=value pairs that describe feature gates for
 ## the k8s cluster.
@@ -634,32 +643,12 @@ kube_proxy_feature_gates: []
 kubelet_feature_gates: []
 kubeadm_feature_gates: []
 
-# Local volume provisioner storage classes
-# Levarages Ansibles string to Python datatype casting. Otherwise the dict_key isn't substituted
-# see https://github.com/ansible/ansible/issues/17324
-local_volume_provisioner_storage_classes: |
-  {
-    "{{ local_volume_provisioner_storage_class | default('local-storage') }}": {
-      "host_dir": "{{ local_volume_provisioner_base_dir | default('/mnt/disks') }}",
-      "mount_dir": "{{ local_volume_provisioner_mount_dir | default('/mnt/disks') }}",
-      "volume_mode": "Filesystem",
-      "fs_type": "ext4"
+local_volume_provisioner_storage_class: local-storage
+local_volume_provisioner_base_dir: /mnt/disks
+local_volume_provisioner_mount_dir: /mnt/disks
+local_volume_provisioner_storage_classes: "{{ local_volume_provisioner_storage_classes_default | items2dict }}"
 
-    }
-  }
-
-ssl_ca_dirs: |-
-  [
-  {% if ansible_os_family in ['Flatcar', 'Flatcar Container Linux by Kinvolk'] -%}
-  '/usr/share/ca-certificates',
-  {% elif ansible_os_family == 'RedHat' -%}
-  '/etc/pki/tls',
-  '/etc/pki/ca-trust',
-  {% elif ansible_os_family == 'Debian' -%}
-  '/usr/share/ca-certificates',
-  {% endif -%}
-  ]
-
+ssl_ca_dirs: "{{ ssl_ca_dirs_per_os_family[ansible_facts['os_family']] | d([]) }}"
 # used for delegating tasks on a working control plane node
 first_kube_control_plane: "{{ groups['kube_control_plane'] | first }}"
 # Vars for pointing to kubernetes api endpoints
@@ -709,12 +698,11 @@ etcd_access_addresses: |-
   {% for item in etcd_hosts -%}
     https://{{ hostvars[item]['main_access_ip'] | ansible.utils.ipwrap }}:2379{% if not loop.last %},{% endif %}
   {%- endfor %}
-etcd_events_access_addresses_list: |-
-  [
-  {% for item in etcd_hosts -%}
-    'https://{{ hostvars[item].main_access_ip | ansible.utils.ipwrap }}:2383'{% if not loop.last %},{% endif %}
-  {%- endfor %}
-  ]
+etcd_events_access_addresses_list: "{{
+                  ['https://'] | product(
+                    etcd_hosts | map('extract', hostvars, morekeys='main_access_ip') | map('ansible.utils.ipwrap'),
+                    [':2383'])
+                  | map('join') }}"
 etcd_metrics_addresses: |-
   {% for item in etcd_hosts -%}
     https://{{ hostvars[item]['main_access_ip'] | ansible.utils.ipwrap }}:{{ etcd_metrics_port | default(2381) }}{% if not loop.last %},{% endif %}
@@ -755,10 +743,10 @@ _host_architecture_groups:
   aarch64: arm64
   armv7l: arm
 host_architecture: >-
-  {%- if ansible_architecture in _host_architecture_groups -%}
-  {{ _host_architecture_groups[ansible_architecture] }}
+  {%- if ansible_facts['architecture'] in _host_architecture_groups -%}
+  {{ _host_architecture_groups[ansible_facts['architecture']] }}
   {%- else -%}
-  {{ ansible_architecture }}
+  {{ ansible_facts['architecture'] }}
   {%- endif -%}
 
 _host_os_groups:
@@ -766,10 +754,10 @@ _host_os_groups:
   Darwin: darwin
   Win32NT: windows
 host_os: >-
-  {%- if ansible_system in _host_os_groups -%}
-  {{ _host_os_groups[ansible_system] }}
+  {%- if ansible_facts['system'] in _host_os_groups -%}
+  {{ _host_os_groups[ansible_facts['system']] }}
   {%- else -%}
-  {{ ansible_system }}
+  {{ ansible_facts['system'] }}
   {%- endif -%}
 
 # Sets the eventRecordQPS parameter in kubelet-config.yaml.
@@ -808,6 +796,7 @@ sysctl_ignore_unknown_keys: false
 
 system_upgrade: false
 system_upgrade_reboot: on-upgrade  # never, always
+system_upgrade_autoclean: false
 
 # Enables or disables the scheduler plugins.
 scheduler_plugins_enabled: false
@@ -823,7 +812,7 @@ ntp_enabled: false
 # The default is ntp for most platforms, or chrony on RHEL/CentOS 7 and later.
 # The ntp_package can be one of ['ntp', 'ntpsec', 'chrony']
 ntp_package: >-
-      {% if ansible_os_family == "RedHat" -%}
+      {% if ansible_facts['os_family'] == "RedHat" -%}
       chrony
       {%- else -%}
       ntp

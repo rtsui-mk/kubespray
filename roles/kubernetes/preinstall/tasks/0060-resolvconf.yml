@@ -1,7 +1,7 @@
 ---
 - name: Create temporary resolveconf cloud init file
   command: cp -f /etc/resolv.conf "{{ resolvconffile }}"
-  when: ansible_facts['os_family'] in ["Flatcar", "Flatcar Container Linux by Kinvolk"]
+  when: ansible_facts['os_family'] == "Flatcar"
 
 - name: Add domain/search/nameservers/options to resolv.conf
   blockinfile:
@@ -27,7 +27,7 @@
     regexp: '^{{ item[1] }}[^#]*(?=# Ansible entries BEGIN)'
     backup: "{{ not resolvconf_stat.stat.islnk }}"
   with_nested:
-    - "{{ [resolvconffile, base | default(''), head | default('')] | difference(['']) }}"
+    - "{{ [resolvconffile, base | default(''), head | default('')] | select | list }}"
     - [ 'search\s', 'nameserver\s', 'domain\s', 'options\s' ]
   notify: Preinstall | propagate resolvconf to k8s components
 
@@ -38,14 +38,14 @@
     replace: '\1'
     backup: "{{ not resolvconf_stat.stat.islnk }}"
   with_nested:
-    - "{{ [resolvconffile, base | default(''), head | default('')] | difference(['']) }}"
+    - "{{ [resolvconffile, base | default(''), head | default('')] | select | list }}"
     - [ 'search\s', 'nameserver\s', 'domain\s', 'options\s' ]
   notify: Preinstall | propagate resolvconf to k8s components
 
 - name: Get temporary resolveconf cloud init file content
   command: cat {{ resolvconffile }}
   register: cloud_config
-  when: ansible_facts['os_family'] in ["Flatcar", "Flatcar Container Linux by Kinvolk"]
+  when: ansible_facts['os_family'] == "Flatcar"
 
 - name: Persist resolvconf cloud init file
   template:
@@ -54,4 +54,4 @@
     owner: root
     mode: "0644"
   notify: Preinstall | propagate resolvconf to k8s components
-  when: ansible_facts['os_family'] in ["Flatcar", "Flatcar Container Linux by Kinvolk"]
+  when: ansible_facts['os_family'] == "Flatcar"

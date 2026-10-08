@@ -17,7 +17,7 @@ and [details on the inventory structure expected by Kubespray](/docs/ansible/inv
 # Review and change parameters under ``inventory/mycluster/group_vars``
 <your-favorite-editor> inventory/mycluster/group_vars/all/all.yml # for every node, including etcd
 <your-favorite-editor> inventory/mycluster/group_vars/k8s_cluster/k8s-cluster.yml # for every node in the cluster (not etcd when it's separate)
-<your-favorite-editor> inventory/mycluster/group_vars/k8s_cluster/kube_control_plane.yml # for the control plane
+<your-favorite-editor> inventory/mycluster/group_vars/kube_control_plane.yml # for the control plane
 ```
 
 ## Installing the cluster
@@ -60,10 +60,7 @@ ansible-playbook -i inventory/mycluster/inventory.ini remove-node.yml -b -v \
 
 > Note: The playbook does not currently support the removal of the first control plane or etcd node. These nodes are essential for maintaining cluster operations and must remain intact.
 
-If a node is completely unreachable by ssh, add `--extra-vars reset_nodes=false`
-to skip the node reset step. If one node is unavailable, but others you wish
-to remove are able to connect via SSH, you could set `reset_nodes=false` as a host
-var in inventory.
+If a node is completely unreachable by ssh, add `--extra-vars '{"reset_nodes": false}'` to skip the node reset step. If one node is unavailable, but others you wish to remove are able to connect via SSH, you could set `reset_nodes=False` as a host var in inventory.
 
 ## Connecting to Kubernetes
 

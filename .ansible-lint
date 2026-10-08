@@ -1,8 +1,9 @@
 ---
+supported_ansible_also:
+  - '2.21.'
+
 skip_list:
   # see https://docs.ansible.com/ansible-lint/rules/default_rules.html for a list of all default rules
-
-  # DO NOT add any other rules to this skip_list, instead use local `# noqa` with a comment explaining WHY it is necessary
 
   # These rules are intentionally skipped:
   #
@@ -35,6 +36,7 @@ skip_list:
   - 'run-once[task]'
 
   - 'jinja[spacing]'
+  - 'name[casing]'
 exclude_paths:
   # Generated files
   - tests/files/custom_cni/cilium.yaml

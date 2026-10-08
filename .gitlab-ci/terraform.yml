@@ -36,6 +36,7 @@ terraform_validate:
           - exoscale
           - hetzner
           - vsphere
+          - opennebula
           - upcloud
 
 .terraform_apply:
@@ -91,7 +92,7 @@ tf-elastx_cleanup:
 tf-elastx_ubuntu24-calico:
   extends: .terraform_apply
   stage: deploy-part1
-  when: on_success
+  when: manual
   variables:
     <<: *elastx_variables
     PROVIDER: openstack

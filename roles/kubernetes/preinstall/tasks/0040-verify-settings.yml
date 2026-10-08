@@ -24,6 +24,14 @@
     msg: "{{ ansible_facts['distribution'] }} is not a known OS"
   when: not ignore_assert_errors
 
+- name: Stop if the container manager is unsupported on openSUSE MicroOS
+  assert:
+    that: container_manager == "containerd"
+    msg: "openSUSE MicroOS only supports containerd"
+  when:
+    - not ignore_assert_errors
+    - ansible_facts['distribution'] == "openSUSE MicroOS"
+
 - name: Stop if memory is too small for control plane nodes
   assert:
     that: ansible_facts['memtotal_mb'] >= minimal_master_memory_mb
@@ -47,7 +55,7 @@
 
 - name: Stop if ip var does not match local ips
   assert:
-    that: (ip in ansible_facts['all_ipv4_addresses']) or (ip in ansible_facts['all_ipv6_addresses'])
+    that: ip | ansible.utils.ipaddr in (ansible_facts['all_ipv4_addresses'] + ansible_facts['all_ipv6_addresses'])
     msg: "IPv4: '{{ ansible_facts['all_ipv4_addresses'] }}' and IPv6: '{{ ansible_facts['all_ipv6_addresses'] }}' do not contain '{{ ip }}'"
   when:
     - not ignore_assert_errors
@@ -64,6 +72,18 @@
 - name: Stop if kernel version is too low for cilium
   assert:
     that: ansible_facts['kernel'].split('-')[0] is version('4.9.17', '>=')
+  when:
+    - kube_network_plugin == 'cilium' or cilium_deploy_additionally
+    - not ignore_assert_errors
+
+- name: Stop if kube_owner is not root when using cilium
+  assert:
+    that: kube_owner == 'root'
+    fail_msg: |
+      kube_owner is set to '{{ kube_owner }}', but cilium requires it to be 'root'.
+      Cilium's init containers run as UID 0 with capabilities (including CAP_DAC_OVERRIDE) dropped,
+      so host paths it writes to (e.g. /opt/cni/bin) must be owned by root or it will fail with
+      a permission error. See https://github.com/kubernetes-sigs/kubespray/issues/13378
   when:
     - kube_network_plugin == 'cilium' or cilium_deploy_additionally
     - not ignore_assert_errors
@@ -93,6 +113,6 @@
 
 - name: Stop if download_localhost is enabled for Flatcar Container Linux
   assert:
-    that: ansible_facts['os_family'] not in ["Flatcar", "Flatcar Container Linux by Kinvolk"]
+    that: ansible_facts['os_family'] != "Flatcar"
     msg: "download_run_once not supported for Flatcar Container Linux"
   when: download_run_once or download_force_cache
